@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Models;
+
 use App\Models\OrderItem;
 use Illuminate\Database\Eloquent\Model;
 
@@ -17,6 +18,9 @@ class Order extends Model
         'status',
         'customer_name',
         'served_by',
+        'kitchen_status',
+        'kitchen_started_at',
+        'kitchen_ready_at',
         'payment_method',
         'order_type',
         'is_split',

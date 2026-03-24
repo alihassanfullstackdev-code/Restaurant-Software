@@ -89,7 +89,7 @@ class OrderController extends Controller
                     'table_id'             => $currentId,
                     'total_amount'         => $request->total_amount,
                     'status'               => $request->status,
-                    'order_type'           => $currentId ? 'dine_in' : 'takeaway',
+                    'order_type'           => $currentId ? ['dine-in', 'delivery', 'takeaway'] [0] : 'takeaway',
                     'customer_name'        => $request->customer_name ?? ($currentId ? 'Table Order' : 'Walking Customer'),
                     'served_by'            => $request->served_by ?? 'System',
                     'payment_method'       => $request->payment_method ?? 'cash',
