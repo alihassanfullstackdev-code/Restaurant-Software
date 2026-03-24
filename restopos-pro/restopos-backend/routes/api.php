@@ -10,6 +10,8 @@ use App\Http\Controllers\FloorPlan\FloorController;
 use App\Http\Controllers\FloorPlan\TablesController;
 use App\Http\Controllers\FloorPlan\TableController;
 use App\Http\Controllers\FloorPlan\TableOperationController;
+use App\Http\Controllers\KitchenPOS\KitchenController;
+use App\Http\Controllers\KitchenPOS\KitchenHistoryController;
 use App\Http\Controllers\API\StaffController;
 
 Route::get('/user', function (Request $request) {
@@ -30,6 +32,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('tables/merge', [TableOperationController::class, 'merge']);
     Route::post('tables/unmerge', [TableOperationController::class, 'unmerge']);
     Route::post('orders/{id}/split', [TableOperationController::class, 'split']);
+    Route::apiResource('kitchen-orders', KitchenController::class);
+    Route::apiResource('kitchen-history', KitchenHistoryController::class);
 });
 // Protected Routes (Login hona zaroori hai)
 Route::middleware('auth:sanctum')->group(function () {
