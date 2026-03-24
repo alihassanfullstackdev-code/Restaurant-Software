@@ -111,12 +111,13 @@ export default function POSTerminal({ tableId }: { tableId?: number | null }) {
     const finalAmount = parseFloat(calculatedTotal.toFixed(2));
 
     const payload = {
+      // Logic: tableId optional rakha taake takeaway/null handle ho sake
       table_id: tableId || null,
       customer_name: customerName || (status === 'held' || status === 'pending' ? 'Table Order' : 'Walking Customer'),
       served_by: servedBy || 'System',
       total_amount: finalAmount,
       payment_method: paymentMethod,
-      status: status, // 'held' or 'paid'
+      status: status, 
       cart: cart.map(item => ({
         product_id: item.id,
         quantity: item.quantity,
@@ -124,24 +125,19 @@ export default function POSTerminal({ tableId }: { tableId?: number | null }) {
       }))
     };
 
-    // Controller handle karega ke agar table occupied hai to store hi update ban jaye
     return await axios.post(`${API_BASE_URL}/orders`, payload);
   };
 
-  // --- UPDATED: SEND TO KITCHEN LOGIC ---
   const handleUpdateOrder = async () => {
     if (cart.length === 0) return;
     try {
       setLoading(true);
-      // Status 'held' rakhenge taake table occupied rahe, 
-      // Backend automatically 'kitchen_status' ko 'sent' kar dega
       await syncWithDatabase('held'); 
       
       Swal.fire({
         toast: true, position: 'top-end', icon: 'success',
         title: 'Order Sent to Kitchen', showConfirmButton: false, timer: 2000
       });
-      // Screen refresh karne ke liye dobara load kar sakte hain agar zaroori ho
       if(tableId) loadActiveTableOrder(tableId);
     } catch (err: any) {
       Swal.fire('Error', 'Update failed', 'error');
@@ -167,7 +163,7 @@ export default function POSTerminal({ tableId }: { tableId?: number | null }) {
           setLastOrder(res.data);
           setShowPrintModal(true);
           resetForm();
-          setActiveTable(null); // Table free ho gayi
+          setActiveTable(null); 
         } catch (err: any) { 
           Swal.fire('Error', 'Checkout Failed', 'error'); 
         }
@@ -179,8 +175,6 @@ export default function POSTerminal({ tableId }: { tableId?: number | null }) {
   
   return (
     <div className="flex flex-col lg:flex-row h-screen w-full bg-slate-100 overflow-hidden font-sans">
-      
-      {/* LEFT SIDE: Menu */}
       <main className="flex-1 flex flex-col min-w-0 bg-white h-full border-r border-slate-200">
         <header className="p-4 md:p-6 bg-white border-b space-y-4 sticky top-0 z-10">
           <div className="flex items-center justify-between gap-4">
@@ -235,7 +229,6 @@ export default function POSTerminal({ tableId }: { tableId?: number | null }) {
         </section>
       </main>
 
-      {/* RIGHT SIDE: Cart Terminal */}
       <aside className="w-full lg:w-[400px] bg-white flex flex-col h-full shadow-2xl z-20">
         <div className="p-6 border-b">
           <div className="flex justify-between items-start mb-4">
@@ -278,7 +271,6 @@ export default function POSTerminal({ tableId }: { tableId?: number | null }) {
           </div>
           
           <div className="flex flex-col gap-3">
-            {/* Unified Action Buttons */}
             <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={handleUpdateOrder} 
@@ -305,7 +297,6 @@ export default function POSTerminal({ tableId }: { tableId?: number | null }) {
         </div>
       </aside>
 
-      {/* MODALS */}
       <RecentOrders 
         isOpen={showRecentOrders} 
         onClose={() => setShowRecentOrders(false)} 
