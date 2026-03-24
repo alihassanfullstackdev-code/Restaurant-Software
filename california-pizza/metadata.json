@@ -1,0 +1,5 @@
+{
+  "name": "California Pizza",
+  "description": "The Golden State's Finest Slices. Artisanal sourdough crusts and locally-sourced ingredients.",
+  "requestFramePermissions": ["geolocation"]
+}

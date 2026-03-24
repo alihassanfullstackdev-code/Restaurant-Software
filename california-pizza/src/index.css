@@ -1,0 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Work Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-primary: #ec1313;
+  --color-background-light: #f8f6f6;
+  --color-background-dark: #221010;
+}
+
+@layer base {
+  body {
+    @apply font-display bg-background-light text-slate-900;
+  }
+}
+
+@layer utilities {
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .glass-nav {
+    @apply bg-[#221010]/80 backdrop-blur-xl;
+  }
+}
