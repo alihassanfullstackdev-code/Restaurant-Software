@@ -1,105 +1,149 @@
-import React, { useState } from 'react';
-import { BookOpen, Cloud, Filter } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { Filter, Loader2 } from 'lucide-react';
 import { OrderCard } from '../../components/OrderCard';
+import { KitchenHeader } from '../../components/kitchen/KitchenHeader';
+import { KitchenFooter } from '../../components/kitchen/KitchenFooter';
+import { KitchenHistory } from '../../components/kitchen/KitchenHistory';
+import Swal from 'sweetalert2';
+
+const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
 export default function KitchenDisplay() {
-  const [orders, setOrders] = useState<any[]>([]); // Khali array for real data
+  const [orders, setOrders] = useState<any[]>([]);
   const [activeFilter, setActiveFilter] = useState('All');
+  const [loading, setLoading] = useState(true);
+  const [currentView, setCurrentView] = useState<'active' | 'history'>('active');
 
-  // Order complete handle karne ka function
-  const handleComplete = (orderId: string) => {
-    setOrders(prev => prev.filter(o => o.id !== orderId));
+  /**
+   * Fetch Orders Logic
+   * @param showLoading - Agar true ho to spinner dikhayega, warna background refresh karega
+   */
+  const fetchOrders = async (showLoading = false) => {
+    if (currentView !== 'active') return;
+
+    if (showLoading) setLoading(true);
+    
+    try {
+      // Backend Enum ke mutabiq values bhejna: 'dine-in', 'delivery', 'takeaway'
+      const filterParam = activeFilter === 'All' ? 'all' : activeFilter.toLowerCase();
+      
+      const response = await axios.get(`${API_BASE_URL}/kitchen-orders`, {
+        params: { type: filterParam }
+      });
+
+      const rawData = response.data.data || response.data;
+      
+      const formattedOrders = rawData.map((order: any) => ({
+        id: order.id,
+        // Backend 'dine-in' ko UI ke liye 'DINE-IN' mein convert karna
+        typeLabel: order.order_type,
+        time: new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: order.kitchen_status,
+        // Critical logic (15 mins)
+        is_critical: (new Date().getTime() - new Date(order.created_at).getTime()) / 60000 > 15,
+        items: order.items.map((item: any) => ({
+          qty: item.quantity,
+          name: item.product?.name || 'Unknown Item',
+          notes: item.notes || '',
+          isMain: true
+        })),
+        specialInstructions: order.notes || ''
+      }));
+
+      setOrders(formattedOrders);
+    } catch (error) {
+      console.error("Fetch Error:", error);
+      if (showLoading) setOrders([]); // Sirf error par clear karein
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Lifecycle Management
+  useEffect(() => {
+    // Jab filter ya view change ho, loading spinner ke sath data layein
+    fetchOrders(true);
+
+    // Background refresh har 10 seconds baad (No spinner)
+    const interval = setInterval(() => {
+      fetchOrders(false);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [activeFilter, currentView]);
+
+  const handleComplete = async (orderId: string) => {
+    try {
+      const response = await axios.put(`${API_BASE_URL}/kitchen-orders/${orderId}`, { status: 'ready' });
+      if (response.status === 200) {
+        // UI se foran remove karein
+        setOrders(prev => prev.filter(o => o.id.toString() !== orderId.toString()));
+        
+        Swal.fire({ 
+          toast: true, 
+          position: 'top-end', 
+          icon: 'success', 
+          title: 'Order Ready!', 
+          showConfirmButton: false, 
+          timer: 1000,
+          background: '#111827',
+          color: '#fff'
+        });
+      }
+    } catch (error) {
+      Swal.fire('Error', 'Update failed', 'error');
+    }
+  };
+
+  const getCounts = (allOrders: any[]) => {
+    return {
+      dineIn: allOrders.filter(o => o.typeLabel === 'dine-in').length,
+      delivery: allOrders.filter(o => o.typeLabel === 'delivery').length,
+      takeaway: allOrders.filter(o => o.typeLabel === 'takeaway').length,
+      total: allOrders.length
+    };
   };
 
   return (
-    <div className="-m-4 md:-m-8 flex flex-col h-[calc(100dvh-64px)] bg-[#0a0f18] text-slate-100 overflow-hidden">
+    <div className="flex flex-col h-screen lg:h-[calc(100dvh-64px)] bg-[#0a0f18] text-slate-100 overflow-hidden">
       
-      {/* Header */}
-      <header className="flex flex-col md:flex-row items-center justify-between border-b border-white/5 bg-[#0a0f18]/80 backdrop-blur-md px-6 py-4 gap-4 shrink-0">
-        <div className="flex items-center gap-6 w-full md:w-auto">
-          <div className="flex items-center gap-3 text-primary">
-            <BookOpen size={24} className="animate-pulse" />
-            <h2 className="text-xl font-black tracking-tighter uppercase">Kitchen<span className="text-white">OS</span></h2>
-          </div>
-          
-          <nav className="hidden lg:flex items-center gap-6">
-            {['Active Orders', 'History', 'Inventory'].map((tab) => (
-              <button key={tab} className={`text-[10px] font-black uppercase tracking-widest transition-colors ${tab === 'Active Orders' ? 'text-primary' : 'text-slate-500 hover:text-slate-300'}`}>
-                {tab}
-              </button>
-            ))}
-          </nav>
-        </div>
+      <KitchenHeader 
+        activeFilter={activeFilter} 
+        setActiveFilter={setActiveFilter} 
+        setLoading={setLoading}
+        currentView={currentView}
+        setView={setCurrentView} 
+      />
 
-        {/* Filters & User */}
-        <div className="flex items-center justify-between w-full md:w-auto gap-4">
-          <div className="flex bg-white/5 rounded-xl border border-white/10 p-1 shrink-0">
-            {['All', 'Dine-in', 'Delivery'].map(f => (
-              <button 
-                key={f}
-                onClick={() => setActiveFilter(f)}
-                className={`px-4 md:px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeFilter === f ? 'bg-primary text-slate-900' : 'text-slate-400'}`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-          
-          <div className="hidden sm:flex items-center gap-3 border-l border-white/10 pl-4 md:pl-6">
-            <div className="text-right">
-              <p className="text-[10px] font-black uppercase">Chef Ramsey</p>
-              <p className="text-[9px] text-primary font-bold uppercase italic">Head Chef</p>
+      <main className="flex-1 overflow-y-auto custom-scrollbar">
+        {currentView === 'active' ? (
+          loading ? (
+            <div className="h-full flex items-center justify-center">
+              <Loader2 className="animate-spin text-primary" size={40} />
             </div>
-            <div className="size-9 rounded-full border-2 border-primary overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1583394293214-28dea15ee548?w=100" alt="Chef" className="w-full h-full object-cover" />
+          ) : orders.length > 0 ? (
+            <div className="flex flex-col lg:flex-row h-full p-4 lg:p-8 gap-6 min-w-0 lg:min-w-max">
+              {orders.map((order) => (
+                <OrderCard key={order.id} order={order} onComplete={() => handleComplete(order.id)} />
+              ))}
             </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Board - Scrollable Grid */}
-      <main className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar bg-gradient-to-b from-transparent to-slate-900/20">
-        {orders.length > 0 ? (
-          <div className="flex h-full p-4 md:p-8 gap-6 min-w-max">
-            {orders.map((order) => (
-              <OrderCard key={order.id} order={order} onComplete={handleComplete} />
-            ))}
-          </div>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center opacity-20 text-center">
+              <Filter size={40} className="mb-2" />
+              <p className="font-bold tracking-widest uppercase text-xs">No Active {activeFilter !== 'All' ? activeFilter : ''} Orders</p>
+            </div>
+          )
         ) : (
-          <div className="h-full flex flex-col items-center justify-center opacity-20">
-            <div className="size-20 rounded-full border-4 border-dashed border-slate-500 flex items-center justify-center mb-4">
-              <Filter size={32} />
-            </div>
-            <p className="font-black uppercase tracking-[0.4em] text-sm">Waiting for Orders</p>
-          </div>
+          <KitchenHistory /> 
         )}
       </main>
 
-      {/* Footer Stats */}
-      <footer className="bg-[#0a0f18] border-t border-white/5 px-6 py-3 shrink-0">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex flex-wrap justify-center items-center gap-6">
-            <StatBadge color="bg-primary" label="New" count={orders.length} />
-            <StatBadge color="bg-orange-500" label="Critical" count={0} />
-            <StatBadge color="bg-slate-500" label="Avg Time" count="14m" />
-          </div>
-          
-          <div className="flex items-center gap-4 text-slate-500">
-            <div className="flex items-center gap-2">
-              <Cloud size={14} className="text-primary" />
-              <span className="text-[9px] font-black uppercase tracking-widest text-primary">Live Sync</span>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <KitchenFooter 
+        orderCount={orders.length} 
+        criticalCount={orders.filter(o => o.is_critical).length} 
+        counts={getCounts(orders)}
+      />
     </div>
   );
 }
-
-// Small helper for footer stats
-const StatBadge = ({ color, label, count }: any) => (
-  <div className="flex items-center gap-2">
-    <div className={`size-2 rounded-full ${color} shadow-lg shadow-current`}></div>
-    <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest">{label}: <span className="text-slate-100">{count}</span></span>
-  </div>
-);
