@@ -1,247 +1,251 @@
-import React, { useState } from 'react';
-import { 
-  Plus, 
-  Download, 
-  List, 
-  Grid, 
-  Edit2, 
-  Trash2, 
-  Lightbulb, 
-  AlertTriangle,
-  ChevronLeft,
-  ChevronRight
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import Swal from 'sweetalert2';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
-// --- Types ---
-interface MenuItem {
-  id: string;
-  name: string;
-  sku: string;
-  category: string;
-  price: number;
-  image: string;
-  status: boolean;
-}
+// Components
+import { MenuHeader } from '../../components/menu_management/MenuHeader';
+import { MenuSidebar } from '../../components/menu_management/MenuSidebar';
+import { ProductTable } from '../../components/menu_management/ProductTable';
+import { TableSkeleton } from '../../components/TableSkeleton';
+import { AddItemModal } from '../../components/AddItem';
+
+const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
 export default function MenuManagement() {
-  // --- States ---
-  const [items, setItems] = useState<MenuItem[]>([]); // Real items will go here
-  const [activeCategory, setActiveCategory] = useState('All Items');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
 
-  const categories = [
-    { name: 'All Items', icon: List },
-    { name: 'Main Course', icon: List },
-    { name: 'Appetizers', icon: List },
-    { name: 'Desserts', icon: List },
-    { name: 'Beverages', icon: List },
-  ];
-
-  // Dummy functions for actions
-  const toggleStatus = (id: string) => {
-    setItems(prev => prev.map(item => 
-      item.id === id ? { ...item, status: !item.status } : item
-    ));
+  const fetchData = async (page = 1) => {
+    setLoading(true);
+    try {
+      const [prodRes, catRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/products?all_items=true&page=${page}`),
+        axios.get(`${API_BASE_URL}/categories`)
+      ]);
+      
+      // Laravel Pagination support
+      setProducts(prodRes.data.data || prodRes.data); 
+      setCurrentPage(prodRes.data.current_page || 1);
+      setLastPage(prodRes.data.last_page || 1);
+      setCategories(catRes.data);
+    } catch (error) {
+      console.error("API Error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  useEffect(() => { fetchData(); }, []);
+
+  // --- Professional Excel Export ---
+      const handleExport = async () => {
+      // Loading indicator dikhayein kyunke data zyada ho sakta hai
+      Swal.fire({
+        title: 'Generating Report...',
+        text: 'Fetching all menu items, please wait.',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+      });
+
+      try {
+        // API se saara data mangwaein (Bina pagination ke)
+        const response = await axios.get(`${API_BASE_URL}/products?export=true`);
+        const allProducts = response.data; // Array of all products
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Full Inventory');
+
+        // 1. Columns Setup
+        worksheet.columns = [
+          { header: 'ID', key: 'id', width: 10 },
+          { header: 'Item Name', key: 'name', width: 35 },
+          { header: 'Category', key: 'category', width: 20 },
+          { header: 'Price (PKR)', key: 'price', width: 15 },
+          { header: 'Status', key: 'status', width: 15 },
+        ];
+
+        // 2. Header Styling (Professional Dark Theme)
+        const headerRow = worksheet.getRow(1);
+        headerRow.height = 25;
+        headerRow.eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+          cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 12 };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+
+        // 3. Add All Data Rows
+        allProducts.forEach((item: any) => {
+          const row = worksheet.addRow({
+            id: item.id,
+            name: item.name,
+            category: item.category?.name || 'Uncategorized',
+            price: item.price,
+            status: item.is_available === 1 ? 'ACTIVE' : 'HIDDEN'
+          });
+
+          // Price alignment
+          row.getCell('price').alignment = { horizontal: 'right' };
+          
+          // Status Color Formatting
+          const statusCell = row.getCell('status');
+          statusCell.font = { 
+            bold: true, 
+            color: { argb: item.is_available === 1 ? 'FF16A34A' : 'FFDC2626' } 
+          };
+        });
+
+        // 4. Borders and Design
+        worksheet.eachRow((row, rowNumber) => {
+          row.eachCell((cell) => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+            };
+          });
+        });
+
+        // 5. Save the File
+        const buffer = await workbook.xlsx.writeBuffer();
+        saveAs(new Blob([buffer]), `RestoPos_Full_Menu_${new Date().toISOString().split('T')[0]}.xlsx`);
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Export Complete',
+          text: `${allProducts.length} items exported to Excel.`,
+        });
+
+      } catch (error) {
+        console.error("Export Error:", error);
+        Swal.fire('Export Failed', 'Could not fetch all data from server.', 'error');
+      }
+    };
+
+  const toggleStatus = async (id: number, currentStatus: number) => {
+    const newStatus = currentStatus === 1 ? 0 : 1;
+    try {
+      await axios.put(`${API_BASE_URL}/products/${id}`, { is_available: newStatus });
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, is_available: newStatus } : p));
+    } catch (error) {
+      Swal.fire('Error', 'Update failed', 'error');
+    }
+  };
+
+  const handleDelete = (id: number) => {
+    Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, delete it!'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await axios.delete(`${API_BASE_URL}/products/${id}`);
+          setProducts(prev => prev.filter(p => p.id !== id));
+          Swal.fire('Deleted!', 'Item has been removed.', 'success');
+        } catch (e) {
+          Swal.fire('Error', 'Delete failed', 'error');
+        }
+      }
+    });
+  };
+
+  const filteredItems = products.filter(item => {
+    const matchesCat = activeCategory === 'All' || item.category_id.toString() === activeCategory;
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCat && matchesSearch;
+  });
+
+      const handleEditClick = (product: any) => {
+      setSelectedProduct(product);
+      setIsModalOpen(true);
+    };
+  // MenuManagement.tsx ke andar ye function add karein:
+
+    const handleSaveProduct = async (formData: FormData) => {
+      try {
+        // Agar initialData (Edit mode) hai to PUT request, warna POST
+        const url = selectedProduct 
+          ? `${API_BASE_URL}/products/${selectedProduct.id}` 
+          : `${API_BASE_URL}/products`;
+        
+        // Laravel mein PUT ke sath spoofing zaroori hoti hai agar image bhej rahe hon
+        if (selectedProduct) formData.append('_method', 'PUT');
+
+        await axios.post(url, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        Swal.fire('Success', 'Product saved successfully!', 'success');
+        fetchData(currentPage); // Table refresh karein
+        return null; // Koi error nahi hai
+      } catch (error: any) {
+        console.error("Save Error:", error);
+        // Agar Laravel validation errors bhej raha hai to return karein
+        return error.response?.data?.errors || { general: ['Something went wrong'] };
+      }
+    };
   return (
-    <div className="space-y-8">
-      {/* Header Section */}
-      <div className="flex flex-wrap items-center justify-between gap-6">
-        <div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900">Menu Management</h1>
-          <p className="text-slate-500 font-medium mt-1">Configure your restaurant offerings, pricing, and availability.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
-            <Download size={18} /> Export
-          </button>
-          <button className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-black text-slate-900 hover:opacity-90 transition-all shadow-lg shadow-primary/20">
-            <Plus size={18} /> Add New Item
-          </button>
-        </div>
-      </div>
+    <div className="space-y-8 p-6 bg-slate-50 min-h-screen">
+      {/* Header with Export & Add Logic */}
+        <MenuHeader 
+          onAddClick={() => {
+            setSelectedProduct(null); // Naya item add karne ke liye reset
+            setIsModalOpen(true);
+          }} 
+          onExport={handleExport} // <--- Yeh link missing thi
+        />
 
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Sidebar Filters */}
-        <aside className="w-full lg:w-64 shrink-0 flex flex-col gap-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="mb-4 px-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Categories</h3>
-            <div className="flex flex-col gap-1">
-              {categories.map((cat, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveCategory(cat.name)}
-                  className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all ${
-                    activeCategory === cat.name 
-                      ? 'bg-primary/10 text-primary border border-primary/20' 
-                      : 'text-slate-500 hover:bg-slate-50 border border-transparent'
-                  }`}
-                >
-                  <cat.icon size={18} />
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-            
-            <div className="mt-8 border-t border-slate-100 pt-6">
-              <h3 className="mb-4 px-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Filters</h3>
-              <div className="flex flex-col gap-4 px-2">
-                {['In Stock Only', 'Popular Items', 'Discounted Items'].map((filter, i) => (
-                  <label key={i} className="flex items-center gap-3 cursor-pointer group">
-                    <input 
-                      type="checkbox" 
-                      className="size-4 rounded border-slate-300 text-primary focus:ring-primary transition-all" 
-                    />
-                    <span className="text-sm font-bold text-slate-600 group-hover:text-primary transition-colors">{filter}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
+        <MenuSidebar 
+          categories={categories} 
+          activeCategory={activeCategory} 
+          setActiveCategory={setActiveCategory}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery} 
+        />
 
-          {/* Pro Tip Card */}
-          <div className="rounded-2xl bg-slate-900 p-6 text-white overflow-hidden relative shadow-xl">
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-3">
-                <Lightbulb size={16} className="text-primary" />
-                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Pro Tip</p>
-              </div>
-              <p className="text-sm text-slate-300 leading-relaxed font-medium">Quickly update stock levels by toggling the status switch directly in the menu list.</p>
-            </div>
-            <div className="absolute -right-6 -bottom-6 opacity-10">
-              <Lightbulb size={120} />
-            </div>
-          </div>
-        </aside>
-
-        {/* Main Content */}
         <div className="flex-1 flex flex-col gap-6">
-          {/* List Controls */}
-          <div className="flex items-center gap-4 py-1">
-            <div className="flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-              <button className="px-5 py-2 text-xs font-black uppercase tracking-widest text-primary bg-primary/10 rounded-lg">Active Items</button>
-              <button className="px-5 py-2 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors">Archived</button>
-              <button className="px-5 py-2 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors">Drafts</button>
-            </div>
-            <div className="ml-auto flex items-center gap-3">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">View:</span>
-              <div className="flex items-center rounded-xl border border-slate-200 bg-white p-1">
-                <button 
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'text-primary bg-primary/10 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                  <List size={18} />
-                </button>
-                <button 
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'text-primary bg-primary/10 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                  <Grid size={18} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Table Area */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Image</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Name & SKU</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Category</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Price</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Status</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {items.length > 0 ? items.map((item, i) => (
-                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="h-14 w-14 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm text-slate-300 flex items-center justify-center font-bold text-[10px]">
-                          {item.image ? <img src={item.image} className="h-full w-full object-cover" alt={item.name} /> : 'NO IMG'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900">{item.name}</span>
-                          <span className="text-[10px] font-mono font-bold text-slate-400 mt-0.5">{item.sku}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center rounded-lg bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                          {item.category}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right font-black text-slate-900">
-                        ${item.price.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <label className="relative inline-flex cursor-pointer items-center">
-                          <input 
-                            type="checkbox" 
-                            className="peer sr-only" 
-                            checked={item.status} 
-                            onChange={() => toggleStatus(item.id)}
-                          />
-                          <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:bg-primary peer-checked:after:translate-x-full"></div>
-                        </label>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="p-2 text-slate-400 hover:text-primary transition-colors"><Edit2 size={18} /></button>
-                          <button className="p-2 text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-20 text-center">
-                        <div className="flex flex-col items-center opacity-20">
-                          <List size={40} className="mb-4" />
-                          <p className="text-sm font-black uppercase tracking-[0.2em]">No menu items found</p>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/30 px-6 py-5">
-              <span className="text-xs font-bold text-slate-400">Showing {items.length} items</span>
-              <div className="flex items-center gap-1">
-                <button className="size-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-400 hover:text-primary"><ChevronLeft size={16} /></button>
-                <button className="size-8 rounded-lg bg-primary text-xs font-black text-slate-900 shadow-sm">1</button>
-                <button className="size-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-400 hover:text-primary"><ChevronRight size={16} /></button>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <StatCard label="Total Items" value={items.length.toLocaleString()} subText="+0 this month" color="text-primary" icon={<Plus size={20} />} bgColor="bg-primary/10" />
-            <StatCard label="Active Categories" value={categories.length - 1} subText="Steady" color="text-blue-500" icon={<List size={20} />} bgColor="bg-blue-500/10" />
-            <StatCard label="Out of Stock" value={items.filter(i => !i.status).length} subText="Requires attention" color="text-red-600" icon={<AlertTriangle size={20} />} bgColor="bg-red-500/10" />
-          </div>
+          {loading ? (
+            <TableSkeleton />
+          ) : (
+            <ProductTable 
+              products={filteredItems} 
+              onToggle={toggleStatus} 
+              onDelete={handleDelete}
+              onEdit={handleEditClick}
+              currentPage={currentPage}
+              lastPage={lastPage}
+              onPageChange={(page: number) => fetchData(page)}
+            />
+          )}
         </div>
       </div>
+
+      {/* Add Item Modal */}
+      {/* Add Item Modal */}
+        <AddItemModal 
+          isOpen={isModalOpen} 
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedProduct(null); // Reset after close
+          }}
+          categories={categories}
+          onRefresh={() => fetchData(currentPage)}
+          onSave={handleSaveProduct}    // <--- Yeh missing tha
+          initialData={selectedProduct} // <--- Yeh missing tha
+        />
     </div>
   );
 }
-
-// --- Helper Component ---
-const StatCard = ({ label, value, subText, color, icon, bgColor }: any) => (
-  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <div className="flex items-center justify-between mb-4">
-      <span className="text-slate-500 text-xs font-bold uppercase tracking-widest">{label}</span>
-      <div className={`p-2 ${bgColor} rounded-lg ${color}`}>{icon}</div>
-    </div>
-    <p className={`text-3xl font-black ${color === 'text-red-600' ? 'text-red-600' : 'text-slate-900'}`}>{value}</p>
-    <p className={`text-[10px] ${color} font-black uppercase tracking-widest mt-2`}>{subText}</p>
-  </div>
-);

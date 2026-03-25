@@ -6,7 +6,8 @@ interface AddItemModalProps {
   onClose: () => void;
   onSave: (formData: FormData) => Promise<any>;
   categories: any[];
-  initialData?: any; 
+  initialData?: any;
+  onRefresh: () => void; 
 }
 
 export const AddItemModal = ({ isOpen, onClose, onSave, categories, initialData }: AddItemModalProps) => {
