@@ -1,5 +1,6 @@
 export type View = 
   | 'dashboard' 
+  | 'suppliers'
   | 'pos' 
   | 'floor' 
   | 'kds' 

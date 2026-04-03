@@ -3,13 +3,14 @@ import axios from 'axios';
 import { 
   LayoutDashboard, ShoppingCart, Table as TableIcon, ChefHat, 
   Menu as MenuIcon, Package, BarChart3, Users, Settings,
-  LogOut, Bell, Search, X 
+  Truck, LogOut, Bell, Search, X 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Types & Pages imports
 import { View } from './types';
 import Dashboard from './pages/Dashboard/dashboard';
+import Suppliers from './pages/Supplier/Supplier';
 import POSTerminal from './pages/POSTerminal/POSTerminal';
 import FloorPlan from './pages/FloorPlan/FloorPlan';
 import KitchenDisplay from './pages/KitchenDisplay/KitchenDisplay';
@@ -52,6 +53,7 @@ export default function App() {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'suppliers', label: 'Suppliers', icon: Truck },
     { id: 'pos', label: 'POS Terminal', icon: ShoppingCart },
     { id: 'floor', label: 'Floor Plan', icon: TableIcon },
     { id: 'kds', label: 'Kitchen OS', icon: ChefHat },
@@ -65,6 +67,7 @@ export default function App() {
   const renderView = () => {
     switch (currentView) {
       case 'dashboard': return <Dashboard />;
+      case 'suppliers': return <Suppliers />;
       case 'pos': return <POSTerminal tableId={selectedTableId} />;
       case 'floor': return <FloorPlan onStartOrder={(tableId: number) => {
         setSelectedTableId(tableId);
