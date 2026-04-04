@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Filter, Loader2 } from 'lucide-react';
+import { Filter, Loader2, Package } from 'lucide-react';
 import { OrderCard } from '../../components/OrderCard';
 import { KitchenHeader } from '../../components/kitchen/KitchenHeader';
 import { KitchenFooter } from '../../components/kitchen/KitchenFooter';
 import { KitchenHistory } from '../../components/kitchen/KitchenHistory';
+import { KitchenInventory } from '../../components/kitchen/KitchenInventory'; // Imported
 import Swal from 'sweetalert2';
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
@@ -13,21 +14,18 @@ export default function KitchenDisplay() {
   const [orders, setOrders] = useState<any[]>([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'active' | 'history'>('active');
+  
+  // Updated State to include 'inventory'
+  const [currentView, setCurrentView] = useState<'active' | 'history' | 'inventory'>('active');
 
-  /**
-   * Fetch Orders Logic
-   * @param showLoading - Agar true ho to spinner dikhayega, warna background refresh karega
-   */
   const fetchOrders = async (showLoading = false) => {
+    // Inventory view par orders fetch nahi karne
     if (currentView !== 'active') return;
 
     if (showLoading) setLoading(true);
     
     try {
-      // Backend Enum ke mutabiq values bhejna: 'dine-in', 'delivery', 'takeaway'
       const filterParam = activeFilter === 'All' ? 'all' : activeFilter.toLowerCase();
-      
       const response = await axios.get(`${API_BASE_URL}/kitchen-orders`, {
         params: { type: filterParam }
       });
@@ -36,11 +34,9 @@ export default function KitchenDisplay() {
       
       const formattedOrders = rawData.map((order: any) => ({
         id: order.id,
-        // Backend 'dine-in' ko UI ke liye 'DINE-IN' mein convert karna
         typeLabel: order.order_type,
         time: new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         status: order.kitchen_status,
-        // Critical logic (15 mins)
         is_critical: (new Date().getTime() - new Date(order.created_at).getTime()) / 60000 > 15,
         items: order.items.map((item: any) => ({
           qty: item.quantity,
@@ -54,18 +50,15 @@ export default function KitchenDisplay() {
       setOrders(formattedOrders);
     } catch (error) {
       console.error("Fetch Error:", error);
-      if (showLoading) setOrders([]); // Sirf error par clear karein
+      if (showLoading) setOrders([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Lifecycle Management
   useEffect(() => {
-    // Jab filter ya view change ho, loading spinner ke sath data layein
     fetchOrders(true);
 
-    // Background refresh har 10 seconds baad (No spinner)
     const interval = setInterval(() => {
       fetchOrders(false);
     }, 10000);
@@ -77,7 +70,6 @@ export default function KitchenDisplay() {
     try {
       const response = await axios.put(`${API_BASE_URL}/kitchen-orders/${orderId}`, { status: 'ready' });
       if (response.status === 200) {
-        // UI se foran remove karein
         setOrders(prev => prev.filter(o => o.id.toString() !== orderId.toString()));
         
         Swal.fire({ 
@@ -134,8 +126,10 @@ export default function KitchenDisplay() {
               <p className="font-bold tracking-widest uppercase text-xs">No Active {activeFilter !== 'All' ? activeFilter : ''} Orders</p>
             </div>
           )
-        ) : (
+        ) : currentView === 'history' ? (
           <KitchenHistory /> 
+        ) : (
+          <KitchenInventory /> /* Render Kitchen Inventory View */
         )}
       </main>
 

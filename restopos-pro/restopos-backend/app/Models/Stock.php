@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Models;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Models\Supplier;
 use App\Models\Category;
@@ -11,7 +12,9 @@ class Stock extends Model
     protected $fillable = [
         'name',
         'category_id',
-        'quantity',
+        'opening_quantity', // Change Quantity to opening_quantity for clarity
+        'issued_quantity',
+        'current_balance',
         'unit',
         'min_stock_level',
         'price_per_unit',
@@ -30,5 +33,10 @@ class Stock extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function issuedStocks()
+    {
+        return $this->hasMany(IssuedStock::class);
     }
 }

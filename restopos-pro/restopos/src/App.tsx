@@ -15,7 +15,7 @@ import POSTerminal from './pages/POSTerminal/POSTerminal';
 import FloorPlan from './pages/FloorPlan/FloorPlan';
 import KitchenDisplay from './pages/KitchenDisplay/KitchenDisplay';
 import MenuManagement from './pages/MenuManagement/MenuManagement';
-import Inventory from './pages/Inventory/Inventory';
+import Inventory  from './pages/Inventory/Inventory';
 import Reports from './pages/Reports/Reports';
 import StaffManagement from './pages/StaffManagement/StaffManagement';
 import Login from './components/Login';

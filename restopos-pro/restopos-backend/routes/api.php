@@ -15,6 +15,7 @@ use App\Http\Controllers\KitchenPOS\KitchenHistoryController;
 use App\Http\Controllers\Inventory\InventoryController;
 use App\Http\Controllers\Supplier\SupplierController;
 use App\Http\Controllers\Inventory\StockController;
+use App\Http\Controllers\Inventory\IssuedInventoryController;
 use App\Http\Controllers\API\StaffController;
 
 Route::get('/user', function (Request $request) {
@@ -40,11 +41,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('kitchen-history', KitchenHistoryController::class);
     Route::apiResource('inventory', InventoryController::class);
     Route::apiResource('stocks', StockController::class);
-    // Dropdowns ke liye specific methods (Agar Controller mein alag se chahiye)
     Route::get('get-suppliers', [StockController::class, 'getSuppliers']);
     Route::get('get-categories', [StockController::class, 'getCategories']);
-    // Transaction Route jo missing tha
     Route::post('stocks/{id}/transaction', [StockController::class, 'handleTransaction']);
+    Route::post('inventory/issued', [IssuedInventoryController::class, 'issueStock']);
+    Route::get('inventory/issued', [IssuedInventoryController::class, 'getIssueHistory']);
+    Route::get('kitchen-stock', [IssuedInventoryController::class, 'getKitchenInventory']);
+
 });
 // Protected Routes (Login hona zaroori hai)
 Route::middleware('auth:sanctum')->group(function () {

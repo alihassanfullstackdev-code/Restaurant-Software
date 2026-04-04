@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, ArrowUpCircle, ArrowDownCircle, Trash2, Loader2, AlertCircle } from 'lucide-react';
+import { X, ArrowUpCircle, ArrowDownCircle, Trash2, Loader2,ChefHat, AlertCircle } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
   item: any; // Jo item select hua hai
-  mode: 'in' | 'out' | 'waste';
+  mode: 'in' | 'out' | 'waste' | 'issue';
   onClose: () => void;
   onSuccess: (id: number, type: string, qty: number, reason: string) => void;
 }
@@ -59,6 +59,14 @@ export const StockActionModal = ({ isOpen, item, mode, onClose, onSuccess }: Pro
       btnColor: 'bg-rose-600',
       icon: <Trash2 size={24} />,
       label: 'How much was wasted?'
+    },
+    issue: {
+      title: 'Issue to Kitchen',
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-50',
+      btnColor: 'bg-indigo-600',
+      icon: <ChefHat size={24} />,
+      label: 'Transfer Quantity'
     }
   };
 
@@ -67,7 +75,7 @@ export const StockActionModal = ({ isOpen, item, mode, onClose, onSuccess }: Pro
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[120] flex items-center justify-center p-4">
       <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
-        
+
         {/* Header */}
         <div className={`p-6 ${config.bgColor} flex justify-between items-center border-b border-slate-100`}>
           <div className="flex items-center gap-3">
@@ -93,7 +101,7 @@ export const StockActionModal = ({ isOpen, item, mode, onClose, onSuccess }: Pro
           <div>
             <label className="text-[10px] font-black uppercase text-slate-400 block mb-2 px-1">{config.label}</label>
             <div className="relative">
-              <input 
+              <input
                 type="number"
                 step="0.01"
                 required
@@ -110,7 +118,7 @@ export const StockActionModal = ({ isOpen, item, mode, onClose, onSuccess }: Pro
           {/* Reason Input */}
           <div>
             <label className="text-[10px] font-black uppercase text-slate-400 block mb-2 px-1">Reason / Note (Optional)</label>
-            <textarea 
+            <textarea
               className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-3 focus:border-slate-900 outline-none font-bold text-sm resize-none"
               placeholder={mode === 'waste' ? 'Why was it wasted?' : 'Reference/Notes...'}
               rows={2}
@@ -128,7 +136,7 @@ export const StockActionModal = ({ isOpen, item, mode, onClose, onSuccess }: Pro
           )}
 
           {/* Submit Button */}
-          <button 
+          <button
             disabled={isSubmitting || (mode !== 'in' && parseFloat(quantity) > item.quantity)}
             className={`w-full py-4 ${config.btnColor} text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-lg transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2`}
           >

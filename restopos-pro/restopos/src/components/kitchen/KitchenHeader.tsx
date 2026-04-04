@@ -6,8 +6,8 @@ interface HeaderProps {
   setActiveFilter: (filter: string) => void;
   setLoading: (loading: boolean) => void;
   // Nayi props add ki hain
-  currentView: 'active' | 'history'; 
-  setView: (view: 'active' | 'history') => void;
+  currentView: 'active' | 'history' |'inventory'; 
+  setView: (view: 'active' | 'history' |'inventory') => void;
 }
 
 export const KitchenHeader: React.FC<HeaderProps> = ({ 
@@ -41,7 +41,9 @@ export const KitchenHeader: React.FC<HeaderProps> = ({
           >
             History
           </button>
-          <button className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 cursor-not-allowed opacity-50">
+          <button 
+            onClick={() => setView('inventory')}
+            className={`text-[10px] font-black uppercase tracking-widest transition-colors ${currentView === 'inventory' ? 'text-primary' : 'text-slate-500 hover:text-slate-300'}`}>
             Inventory
           </button>
         </nav>
