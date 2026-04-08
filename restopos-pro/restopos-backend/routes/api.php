@@ -16,7 +16,8 @@ use App\Http\Controllers\Inventory\InventoryController;
 use App\Http\Controllers\Supplier\SupplierController;
 use App\Http\Controllers\Inventory\StockController;
 use App\Http\Controllers\Inventory\IssuedInventoryController;
-use App\Http\Controllers\API\StaffController;
+use App\Http\Controllers\StaffRoles\StaffController;
+use App\Http\Controllers\StaffRoles\StaffRoleController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -41,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('kitchen-history', KitchenHistoryController::class);
     Route::apiResource('inventory', InventoryController::class);
     Route::apiResource('stocks', StockController::class);
+    Route::apiResource('staff-roles', StaffRoleController::class);
     Route::get('get-suppliers', [StockController::class, 'getSuppliers']);
     Route::get('get-categories', [StockController::class, 'getCategories']);
     Route::post('stocks/{id}/transaction', [StockController::class, 'handleTransaction']);
