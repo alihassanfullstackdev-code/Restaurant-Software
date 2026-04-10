@@ -3,7 +3,8 @@ import axios from 'axios';
 import { 
   LayoutDashboard, ShoppingCart, Table as TableIcon, ChefHat, 
   Menu as MenuIcon, Package, BarChart3, Users, Settings,
-  Truck, LogOut, Bell, Search, X 
+  Truck, LogOut, Bell, Search, X, 
+  ShieldCheck // 👈 Permission Icon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -18,6 +19,7 @@ import MenuManagement from './pages/MenuManagement/MenuManagement';
 import Inventory  from './pages/Inventory/Inventory';
 import Reports from './pages/Reports/Reports';
 import StaffManagement from './pages/StaffManagement/StaffManagement';
+import RolePermissionMatrix from './pages/RolePermissions/RolePermissionMatrix'; // 👈 Matrix Page
 import Login from './components/Login';
 
 export default function App() {
@@ -37,20 +39,17 @@ export default function App() {
   }, [token]);
 
   const handleLogout = () => {
-    // Optional: Call Laravel logout endpoint if needed
-    // axios.post('http://127.0.0.1:8000/api/logout');
-
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     window.location.reload(); 
   };
 
-  // Guard: If not logged in, show Login page only
   if (!token) {
     return <Login />;
   }
   // --- Auth Logic End ---
 
+  // Navigation Items
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'suppliers', label: 'Suppliers', icon: Truck },
@@ -61,6 +60,7 @@ export default function App() {
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'reports', label: 'Sales Reports', icon: BarChart3 },
     { id: 'staff', label: 'Staff & Roles', icon: Users },
+    { id: 'permissions', label: 'Access Control', icon: ShieldCheck }, // 👈 Added
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -78,6 +78,7 @@ export default function App() {
       case 'inventory': return <Inventory />;
       case 'reports': return <Reports />;
       case 'staff': return <StaffManagement />;
+      case 'permissions': return <RolePermissionMatrix />; // 👈 Added
       default: return <Dashboard />;
     }
   };
@@ -157,7 +158,7 @@ export default function App() {
             onClick={() => setSidebarOpen(true)}
             className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg lg:hidden"
           >
-            <MenuIcon size={24} />
+            <X size={24} />
           </button>
           
           <div className="relative w-full max-w-md hidden sm:block mx-4">

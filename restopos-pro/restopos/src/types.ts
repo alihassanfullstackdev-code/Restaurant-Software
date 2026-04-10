@@ -8,6 +8,7 @@ export type View =
   | 'inventory' 
   | 'reports' 
   | 'staff' 
+  | 'permissions'
   | 'settings';
 
 export interface MenuItem {

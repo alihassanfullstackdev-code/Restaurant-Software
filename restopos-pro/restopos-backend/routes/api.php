@@ -18,6 +18,9 @@ use App\Http\Controllers\Inventory\StockController;
 use App\Http\Controllers\Inventory\IssuedInventoryController;
 use App\Http\Controllers\StaffRoles\StaffController;
 use App\Http\Controllers\StaffRoles\StaffRoleController;
+use App\Http\Controllers\RolePermissions\RolePermissionController;
+use App\Http\Controllers\RolePermissions\RoleController;
+use App\Http\Controllers\RolePermissions\UserController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -43,13 +46,25 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('inventory', InventoryController::class);
     Route::apiResource('stocks', StockController::class);
     Route::apiResource('staff-roles', StaffRoleController::class);
+    Route::apiResource('permissions', RolePermissionController::class);
+    Route::apiResource('role-permissions', RolePermissionController::class);
+    // Standard Resource Routes
+    Route::apiResource('roles', RoleController::class);
+
+    Route::apiResource('users', UserController::class);
+
+    // Matrix Logic Routes
+    Route::get('role-permissions', [RoleController::class, 'index']);
+    Route::get('roles/{id}/defaults', [RoleController::class, 'show']);
+    Route::post('roles/{id}/sync', [RoleController::class, 'syncPermissions']);
+    // Custom route for syncing matrix
+    Route::post('role-permissions/sync', [RolePermissionController::class, 'store']);
     Route::get('get-suppliers', [StockController::class, 'getSuppliers']);
     Route::get('get-categories', [StockController::class, 'getCategories']);
     Route::post('stocks/{id}/transaction', [StockController::class, 'handleTransaction']);
     Route::post('inventory/issued', [IssuedInventoryController::class, 'issueStock']);
     Route::get('inventory/issued', [IssuedInventoryController::class, 'getIssueHistory']);
     Route::get('kitchen-stock', [IssuedInventoryController::class, 'getKitchenInventory']);
-
 });
 // Protected Routes (Login hona zaroori hai)
 Route::middleware('auth:sanctum')->group(function () {
