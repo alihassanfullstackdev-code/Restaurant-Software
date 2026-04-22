@@ -1,7 +1,12 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 
-export default function FloorHeader({ floorName, onAddTable }: any) {
+interface FloorHeaderProps {
+  floorName?: string;
+  onAddTable?: () => void;
+}
+
+export default function FloorHeader({ floorName, onAddTable }: FloorHeaderProps) {
   return (
     <div className="flex justify-between items-center mb-8">
       <div>
@@ -21,13 +26,15 @@ export default function FloorHeader({ floorName, onAddTable }: any) {
            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-amber-500"></span> Group</div>
         </div>
 
-        {/* Add Table Button */}
-        <button 
-          onClick={onAddTable}
-          className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-blue-600 transition-all shadow-xl active:scale-95"
-        >
-          <Plus size={16} /> Add Table
-        </button>
+        {/* --- ADD TABLE BUTTON: Permission Logic --- */}
+        {onAddTable && (
+          <button 
+            onClick={onAddTable}
+            className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-blue-600 transition-all shadow-xl active:scale-95"
+          >
+            <Plus size={16} /> Add Table
+          </button>
+        )}
       </div>
     </div>
   );

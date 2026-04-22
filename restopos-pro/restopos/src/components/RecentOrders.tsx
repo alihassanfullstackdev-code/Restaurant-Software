@@ -3,6 +3,18 @@ import { X, Printer, Eye, ShoppingCart, Trash2, Lock } from 'lucide-react';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 
+/**
+ * Helper function to check user permissions from localStorage
+ */
+const can = (permissionSlug: string): boolean => {
+  const storedUser = localStorage.getItem('user');
+  if (!storedUser) return false;
+  
+  const user = JSON.parse(storedUser);
+  const permissions = user.permissions || [];
+  return permissions.some((p: any) => p.slug === permissionSlug);
+};
+
 export const RecentOrders = ({ isOpen, onClose, onLoadOrder, onDirectPrint, onPreview }: any) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -19,6 +31,11 @@ export const RecentOrders = ({ isOpen, onClose, onLoadOrder, onDirectPrint, onPr
   useEffect(() => { if (isOpen) fetchOrders(); }, [isOpen]);
 
   const handleDelete = async (id: number) => {
+    // SECURITY CHECK: Direct function call block
+    if (!can('delete-order')) {
+      return Swal.fire('Restricted', 'Aapko order delete karne ki ijazat nahi hai.', 'error');
+    }
+
     const result = await Swal.fire({
       title: 'Delete Order?',
       text: "Kya aap is order ko permanently delete karna chahte hain?",
@@ -64,12 +81,12 @@ export const RecentOrders = ({ isOpen, onClose, onLoadOrder, onDirectPrint, onPr
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-800">{order.customer_name || 'Walking Customer'}</h4>
-                      <p className="text-slate-900 font-black text-sm">${Number(order.total_amount).toFixed(2)}</p>
+                      <p className="text-slate-900 font-black text-sm">Rs. {Number(order.total_amount).toFixed(2)}</p>
                     </div>
                   </div>
 
                   <div className="flex gap-2">
-                    {/* OPTION 1: Preview (Hamesha kaam karega) */}
+                    {/* PREVIEW: Sab dekh sakte hain */}
                     <button 
                       onClick={() => onPreview(order)} 
                       className="p-3 bg-white text-slate-500 rounded-xl shadow-sm border border-slate-100 hover:text-blue-600"
@@ -78,39 +95,47 @@ export const RecentOrders = ({ isOpen, onClose, onLoadOrder, onDirectPrint, onPr
                       <Eye size={18}/>
                     </button>
 
-                    {/* OPTION 2 & 3: Edit & Print (Sirf HELD orders ke liye) */}
+                    {/* EDIT & PRINT: Sirf HELD orders ke liye aur permissions ke sath */}
                     {!isPaid ? (
                       <>
-                        <button 
-                          onClick={() => onLoadOrder(order)} 
-                          className="p-3 bg-white text-orange-500 rounded-xl shadow-sm border border-slate-100 hover:bg-orange-50"
-                          title="Edit / Load to Cart"
-                        >
-                          <ShoppingCart size={18}/>
-                        </button>
-                        <button 
-                          onClick={() => onDirectPrint(order)} 
-                          className="p-3 bg-emerald-600 text-white rounded-xl shadow-lg hover:bg-emerald-700"
-                          title="Quick Pay & Print"
-                        >
-                          <Printer size={18}/>
-                        </button>
+                        {/* EDIT PERMISSION */}
+                        {can('edit-order') && (
+                          <button 
+                            onClick={() => onLoadOrder(order)} 
+                            className="p-3 bg-white text-orange-500 rounded-xl shadow-sm border border-slate-100 hover:bg-orange-50"
+                            title="Edit / Load to Cart"
+                          >
+                            <ShoppingCart size={18}/>
+                          </button>
+                        )}
+                        
+                        {/* PRINT/PAY PERMISSION */}
+                        {can('create-order') && (
+                          <button 
+                            onClick={() => onDirectPrint(order)} 
+                            className="p-3 bg-emerald-600 text-white rounded-xl shadow-lg hover:bg-emerald-700"
+                            title="Quick Pay & Print"
+                          >
+                            <Printer size={18}/>
+                          </button>
+                        )}
                       </>
                     ) : (
-                      /* Paid orders par Lock icon dikhayenge edit ki jagah */
                       <div className="flex items-center px-3 text-slate-300 italic text-[10px] font-bold">
                         <Lock size={14} className="mr-1" /> Locked
                       </div>
                     )}
 
-                    {/* OPTION 4: Delete (Hamesha kaam karega) */}
-                    <button 
-                      onClick={() => handleDelete(order.id)} 
-                      className="p-3 bg-white text-red-300 hover:text-red-600 rounded-xl shadow-sm border border-slate-100 hover:bg-red-50"
-                      title="Delete Permanently"
-                    >
-                      <Trash2 size={18}/>
-                    </button>
+                    {/* DELETE PERMISSION */}
+                    {can('delete-order') && (
+                      <button 
+                        onClick={() => handleDelete(order.id)} 
+                        className="p-3 bg-white text-red-300 hover:text-red-600 rounded-xl shadow-sm border border-slate-100 hover:bg-red-50"
+                        title="Delete Permanently"
+                      >
+                        <Trash2 size={18}/>
+                      </button>
+                    )}
                   </div>
                 </div>
               );

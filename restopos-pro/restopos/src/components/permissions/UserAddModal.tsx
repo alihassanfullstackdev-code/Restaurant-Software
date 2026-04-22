@@ -1,69 +1,160 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { X, Save, ShieldCheck, Loader2 } from 'lucide-react';
 import axios from 'axios';
-import { X, Save, UserPlus, Shield, Key,Loader2 } from 'lucide-react';
 
-export default function UserAddModal({ roles, permissions, onClose, refreshData }: any) {
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', role_id: '' });
-  const [selectedPerms, setSelectedPerms] = useState<number[]>([]);
+interface ModalProps {
+  roles: any[];
+  permissions: any[];
+  matrix: any; 
+  onClose: () => void;
+  refreshData: () => void;
+  editData: any | null;
+}
+
+export default function UserAddModal({ roles, permissions, matrix, onClose, refreshData, editData }: ModalProps) {
+  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [selectedRole, setSelectedRole] = useState<string>('');
+  const [selectedPermissions, setSelectedPermissions] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const handleSave = async () => {
-    if (!formData.name || !formData.email || !formData.role_id) return alert("Fill required fields!");
+  // --- 1. EDIT MODE: Load Current DB State ---
+  useEffect(() => {
+    if (editData) {
+      setFormData({
+        name: editData.name || '',
+        email: editData.email || '',
+        password: '', 
+      });
+
+      if (editData.role_id) {
+        setSelectedRole(editData.role_id.toString());
+        
+        // FIX: Yahan Matrix merge nahi karni edit ke waqt. 
+        // Sirf wahi dikhana hai jo DB mein user ke pass hai.
+        const dbPerms = editData.permissions?.map((p: any) => p.id) || [];
+        setSelectedPermissions(dbPerms);
+      }
+    } else {
+      setFormData({ name: '', email: '', password: '' });
+      setSelectedRole('');
+      setSelectedPermissions([]);
+    }
+  }, [editData]); 
+
+  // --- 2. DROPDOWN CHANGE: Auto-fill from Matrix ---
+  const handleRoleChange = (roleId: string) => {
+    setSelectedRole(roleId);
+    if (!roleId) {
+      setSelectedPermissions([]);
+      return;
+    }
+
+    // Role badalte hi hum "Assume" kar rahe hain ke user ab naye default perms chahta hai
+    if (matrix && matrix[roleId]) {
+      setSelectedPermissions(matrix[roleId]);
+    } else {
+      setSelectedPermissions([]);
+    }
+  };
+
+  // --- 3. MANUAL OVERRIDE ---
+  const togglePermission = (id: number) => {
+    setSelectedPermissions(prev =>
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     try {
-      await axios.post('http://localhost:8000/api/users', { ...formData, permissions: selectedPerms });
-      alert("Staff Member Registered! ✅");
+      const payload: any = {
+        name: formData.name,
+        email: formData.email,
+        role_id: selectedRole,
+        permissions: selectedPermissions, // Array exactly waisa jayega jaisa UI par selected hai
+      };
+      
+      if (formData.password) payload.password = formData.password;
+
+      if (editData) {
+        await axios.put(`http://localhost:8000/api/users/${editData.id}`, payload);
+      } else {
+        await axios.post('http://localhost:8000/api/users', payload);
+      }
+      
       refreshData();
       onClose();
-    } catch (err) { alert("Registration Failed!"); }
-    finally { setLoading(false); }
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Operation failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-md flex justify-center items-center z-[200] p-4">
-      <div className="bg-white w-full max-w-5xl rounded-[3rem] border-4 border-slate-900 shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
-        <div className="p-8 border-b-4 border-slate-900 bg-slate-50 flex justify-between items-center">
-            <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900">Authorize Personnel</h2>
-            <button onClick={onClose} className="p-2 border-2 border-slate-900 rounded-full hover:bg-red-500 hover:text-white transition-all"><X /></button>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl border-2 border-slate-900 overflow-hidden">
+        <div className="bg-slate-900 p-6 flex justify-between items-center text-white">
+          <h2 className="font-black uppercase italic tracking-tighter text-xl">
+            {editData ? 'Modify Identity' : 'Forge New Identity'}
+          </h2>
+          <button onClick={onClose}><X size={24} /></button>
         </div>
 
-        <div className="p-10 overflow-y-auto space-y-10 custom-scrollbar">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <input type="text" placeholder="Full Name" onChange={e => setFormData({...formData, name: e.target.value})} className="p-5 rounded-2xl border-2 border-slate-900 font-bold uppercase text-xs outline-none focus:bg-slate-50" />
-            <input type="email" placeholder="Email Address" onChange={e => setFormData({...formData, email: e.target.value})} className="p-5 rounded-2xl border-2 border-slate-900 font-bold uppercase text-xs outline-none focus:bg-slate-50" />
-            <input type="password" placeholder="Passcode" onChange={e => setFormData({...formData, password: e.target.value})} className="p-5 rounded-2xl border-2 border-slate-900 font-bold uppercase text-xs outline-none focus:bg-slate-50" />
+        <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[85vh] overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-2 gap-4 text-left text-black">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black uppercase text-slate-400">Personnel Name</label>
+              <input required type="text" value={formData.name} onChange={(e)=>setFormData({...formData, name: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-100 p-3 rounded-xl focus:border-slate-900 outline-none font-bold text-sm text-black"/>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black uppercase text-slate-400">Email Address</label>
+              <input required type="email" value={formData.email} onChange={(e)=>setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-100 p-3 rounded-xl focus:border-slate-900 outline-none font-bold text-sm text-black"/>
+            </div>
           </div>
 
-          <div className="space-y-4">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-2"><Shield size={14}/> Define Authority (Role)</h4>
-            <select onChange={e => setFormData({...formData, role_id: e.target.value})} className="w-full p-5 rounded-2xl border-2 border-slate-900 font-black uppercase text-sm bg-slate-50 outline-none">
-                <option value="">Select Primary Role</option>
-                {roles.map((r:any) => <option key={r.id} value={r.id}>{r.role_name}</option>)}
+          <div className="text-left space-y-1">
+            <label className="text-[9px] font-black uppercase text-slate-400">
+              Security Pin {editData && "(Optional)"}
+            </label>
+            <input type="password" placeholder="••••••••" value={formData.password} onChange={(e)=>setFormData({...formData, password: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-100 p-3 rounded-xl focus:border-slate-900 outline-none font-bold text-sm text-black"/>
+          </div>
+
+          <div className="text-left space-y-1">
+            <label className="text-[9px] font-black uppercase text-blue-600">Authority Rank</label>
+            <select required value={selectedRole} onChange={(e) => handleRoleChange(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-100 p-3 rounded-xl focus:border-slate-900 outline-none font-black uppercase text-xs text-black">
+              <option value="">Assign Rank...</option>
+              {roles.map(role => <option key={role.id} value={role.id}>{role.role_name}</option>)}
             </select>
           </div>
 
-          <div className="space-y-4">
-             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-2"><Key size={14}/> Access Override (Pivot Table)</h4>
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {permissions.map((p:any) => (
-                    <button 
-                        key={p.id}
-                        onClick={() => setSelectedPerms(prev => prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id])}
-                        className={`p-4 rounded-xl border-2 font-black uppercase text-[9px] tracking-tight transition-all
-                        ${selectedPerms.includes(p.id) ? 'bg-slate-900 text-white border-slate-900 shadow-md' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'}`}
-                    >
-                        {p.permission_name}
-                    </button>
-                ))}
-             </div>
+          <div className="text-left space-y-3">
+            <div className="flex justify-between items-center px-1">
+               <label className="text-[9px] font-black uppercase text-slate-400">Operational Privileges</label>
+               <span className="text-[8px] font-bold text-emerald-500 uppercase">{selectedPermissions.length} Active</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {permissions.map((perm) => {
+                const isSelected = selectedPermissions.includes(perm.id);
+                return (
+                  <div 
+                    key={perm.id} 
+                    onClick={() => togglePermission(perm.id)} 
+                    className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-2 ${isSelected ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-100 bg-slate-50 text-slate-400'}`}
+                  >
+                    <ShieldCheck size={12} className={isSelected ? 'text-emerald-400' : 'text-slate-200'} />
+                    <span className="text-[8px] font-black uppercase truncate">{perm.permission_name}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
 
-        <div className="p-8 bg-slate-50 border-t-4 border-slate-900 flex justify-end">
-            <button onClick={handleSave} disabled={loading} className="bg-slate-900 text-white px-12 py-5 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center gap-3 hover:bg-black transition-all">
-               {loading ? <Loader2 className="animate-spin" /> : <Save size={20}/>} Commit Identity
-            </button>
-        </div>
+          <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white p-4 rounded-2xl font-black uppercase tracking-[0.2em] hover:bg-emerald-600 transition-all flex items-center justify-center gap-2">
+            {loading ? <Loader2 className="animate-spin" /> : <><Save size={18} /> Update Identity</>}
+          </button>
+        </form>
       </div>
     </div>
   );

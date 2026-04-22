@@ -5,20 +5,38 @@ namespace App\Http\Controllers\PosTerminal;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage; // Image delete karne ke liye zaroori hai
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Routing\Controllers\HasMiddleware; // Ye line lazmi add karein
+use Illuminate\Routing\Controllers\Middleware;    // Ye line lazmi add karein
 
-class ProductController extends Controller
+class ProductController extends Controller implements HasMiddleware
 {
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+    {
+        return [
+            // Index aur Show ke liye 'view-menu' slug
+            new Middleware('can:view-menu', only: ['index', 'show']),
+            
+            // Store (Add) ke liye 'add-menu' slug
+            new Middleware('can:add-menu', only: ['store']),
+            
+            // Update (Edit) ke liye 'edit-menu' slug
+            new Middleware('can:edit-menu', only: ['update']),
+            
+            // Destroy (Delete) ke liye 'delete-menu' slug
+            new Middleware('can:delete-menu', only: ['destroy']),
+        ];
+    }
+
     public function index(Request $request)
     {
         $query = Product::with('category')->latest();
-
-        // Agar hum Menu Management (Backend) se call kar rahe hain
         if ($request->has('all_items')) {
-            return response()->json($query->paginate(10)); 
+            return response()->json($query->paginate(10));
         }
-
-        // Agar POS Terminal (Frontend) se call kar rahe hain
         return response()->json($query->where('is_available', true)->get());
     }
 
@@ -32,7 +50,6 @@ class ProductController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            // Hum directly 'products' folder mein store kar rahe hain public disk par
             $data['image'] = $request->file('image')->store('products', 'public');
         }
 
@@ -44,7 +61,6 @@ class ProductController extends Controller
     {
         $product = Product::findOrFail($id);
 
-        // React se aane wali boolean availability check
         if ($request->has('is_available')) {
             $product->update(['is_available' => $request->is_available]);
             return response()->json($product);
@@ -58,7 +74,6 @@ class ProductController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            // Purani image delete karna professional approach hai
             if ($product->image) {
                 Storage::disk('public')->delete($product->image);
             }
@@ -72,12 +87,9 @@ class ProductController extends Controller
     public function destroy($id)
     {
         $product = Product::findOrFail($id);
-        
-        // Image bhi delete karein taake server par bojh na parre
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
         }
-
         $product->delete();
         return response()->json(['message' => 'Product and Image Deleted Successfully']);
     }

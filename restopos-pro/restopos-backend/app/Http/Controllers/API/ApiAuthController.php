@@ -16,7 +16,10 @@ class ApiAuthController extends Controller
             'password' => 'required',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        // FIX: Yahan 'with' use karke relationships ko load karein
+        $user = User::with(['role', 'permissions', 'role.permissions'])
+                    ->where('email', $request->email)
+                    ->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Credentials sahi nahi hain!'], 401);
@@ -25,7 +28,7 @@ class ApiAuthController extends Controller
         $token = $user->createToken('restopos_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'user' => $user, // Ab is user object mein roles aur permissions ka poora array hoga
             'token' => $token
         ]);
     }

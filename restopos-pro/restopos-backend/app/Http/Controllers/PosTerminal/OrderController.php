@@ -7,9 +7,22 @@ use App\Models\Order;
 use App\Models\ResturantTable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class OrderController extends Controller
+class OrderController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            // Pure POS access check
+            new Middleware('can:access-pos'),
+            // Specific action checks
+            new Middleware('can:create-order', only: ['store']),
+            new Middleware('can:edit-order', only: ['update']),
+            new Middleware('can:delete-order', only: ['destroy']),
+        ];
+    }
     public function index(Request $request)
     {
         $query = Order::with(['items.product', 'table']);
@@ -40,7 +53,7 @@ class OrderController extends Controller
             'table_id'     => 'nullable|exists:restaurant_tables,id',
             'cart'         => 'required|array',
             'total_amount' => 'required|numeric',
-            'status'       => 'required|string', 
+            'status'       => 'required|string',
         ]);
 
         return DB::transaction(function () use ($request) {
@@ -66,8 +79,8 @@ class OrderController extends Controller
                         $q->orWhereIn('table_id', $mergedIds);
                     }
                 })
-                ->whereIn('status', ['pending', 'held'])
-                ->first();
+                    ->whereIn('status', ['pending', 'held'])
+                    ->first();
             }
 
             // --- 2. CREATE OR UPDATE LOGIC ---
@@ -80,7 +93,7 @@ class OrderController extends Controller
                     'served_by'            => $request->served_by ?? $order->served_by,
                     'payment_method'       => $request->payment_method ?? $order->payment_method,
                     'merged_into_table_id' => $mergedString,
-                    'kitchen_status'       => 'sent', 
+                    'kitchen_status'       => 'sent',
                 ]);
                 $order->items()->delete();
             } else {
@@ -89,11 +102,11 @@ class OrderController extends Controller
                     'table_id'             => $currentId,
                     'total_amount'         => $request->total_amount,
                     'status'               => $request->status,
-                    'order_type'           => $currentId ? ['dine-in', 'delivery', 'takeaway'] [0] : 'takeaway',
+                    'order_type'           => $currentId ? ['dine-in', 'delivery', 'takeaway'][0] : 'takeaway',
                     'customer_name'        => $request->customer_name ?? ($currentId ? 'Table Order' : 'Walking Customer'),
                     'served_by'            => $request->served_by ?? 'System',
                     'payment_method'       => $request->payment_method ?? 'cash',
-                    'kitchen_status'       => 'sent', 
+                    'kitchen_status'       => 'sent',
                     'kitchen_started_at'   => now(),
                     'merged_into_table_id' => $mergedString,
                     'is_split'             => 0,

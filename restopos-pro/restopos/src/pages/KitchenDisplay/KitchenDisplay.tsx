@@ -10,7 +10,11 @@ import Swal from 'sweetalert2';
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
-export default function KitchenDisplay() {
+interface KitchenDisplayProps {
+  userPermissions?: any;
+}
+
+export default function KitchenDisplay({ userPermissions }: KitchenDisplayProps) {
   const [orders, setOrders] = useState<any[]>([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [loading, setLoading] = useState(true);

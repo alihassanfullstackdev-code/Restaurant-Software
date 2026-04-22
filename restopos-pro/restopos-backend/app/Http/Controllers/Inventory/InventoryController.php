@@ -6,9 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Models\Ingredient;
 use App\Models\StockTransaction;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class InventoryController extends Controller
+class InventoryController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:view-inventory', only: ['index', 'show']),
+            new Middleware('can:add-inventory', only: ['store']),
+            new Middleware('can:edit-inventory', only: ['update']),
+            new Middleware('can:delete-inventory', only: ['destroy']),
+        ];
+    }
     /**
      * Display a listing of the resource.
      */

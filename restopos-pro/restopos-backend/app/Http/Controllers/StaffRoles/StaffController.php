@@ -6,9 +6,32 @@ use App\Http\Controllers\Controller;
 use App\Models\Staff;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Routing\Controllers\HasMiddleware; // Ye line lazmi add karein
+use Illuminate\Routing\Controllers\Middleware;
 
-class StaffController extends Controller
+class StaffController extends Controller implements HasMiddleware
 {
+    /**
+     * Get the middleware that should be assigned to the controller.
+     */
+    public static function middleware(): array
+
+    {
+        return [
+            // Index aur Show ke liye 'view-staff' slug
+            new Middleware('can:view-staff', only: ['index', 'show']),
+
+            // Store (Add) ke liye 'add-staff' slug
+            new Middleware('can:add-staff', only: ['store']),
+
+            // Update (Edit) ke liye 'edit-staff' slug
+            new Middleware('can:edit-staff', only: ['update']),
+
+            // Destroy (Delete) ke liye 'delete-staff' slug
+            new Middleware('can:delete-staff', only: ['destroy']),
+        ];
+    }
+
     public function index()
     {
         // 10 records per page (aap number change kar sakty hain)

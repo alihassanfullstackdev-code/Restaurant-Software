@@ -11,11 +11,12 @@ use Illuminate\Support\Facades\DB;
 class RoleController extends Controller
 {
     /**
-     * React Table aur Permissions Matrix ke liye data fetch karna.
+     * UPDATED: Roles ke sath unki permissions load karna (Eager Loading).
      */
     public function index()
     {
-        $roles = Role::orderBy('id', 'desc')->get();
+        // .with('permissions') lazmi hai taake React ko har role ki default permissions mil sakein
+        $roles = Role::with('permissions')->orderBy('id', 'desc')->get();
         $permissions = Permission::all();
 
         return response()->json([
@@ -25,25 +26,24 @@ class RoleController extends Controller
     }
 
     /**
-     * UPDATED: Naya Role aur uski Permissions aik sath save karna.
+     * Naya Role aur uski Permissions aik sath save karna.
      */
     public function store(Request $request)
     {
         $request->validate([
             'role_name'   => 'required|unique:roles,role_name|max:100',
-            'permissions' => 'nullable|array', // Permissions array honi chahiye
-            'permissions.*' => 'exists:permissions,id' // Har ID valid honi chahiye
+            'permissions' => 'nullable|array',
+            'permissions.*' => 'exists:permissions,id'
         ]);
 
         try {
             return DB::transaction(function () use ($request) {
-                // 1. Role Create karein
                 $role = Role::create([
                     'role_name' => strtoupper($request->role_name)
                 ]);
 
-                // 2. Agar permissions bheji gayi hain, toh sync karein
                 if ($request->has('permissions')) {
+                    // attach() ya sync() dono use ho sakte hain new role ke liye
                     $role->permissions()->attach($request->permissions);
                 }
 
@@ -61,15 +61,12 @@ class RoleController extends Controller
     }
 
     /**
-     * Specific Role ki permissions return karna (Auto-check logic).
+     * Specific Role ki permissions IDs return karna.
      */
     public function show(string $id)
     {
         $role = Role::findOrFail($id);
-        
-        // Relationship use karte hue IDs nikalna zyada behtar hai
         $defaults = $role->permissions()->pluck('permissions.id');
-
         return response()->json($defaults);
     }
 
@@ -97,24 +94,23 @@ class RoleController extends Controller
     public function destroy(string $id)
     {
         $role = Role::findOrFail($id);
-        
+        // Cascade delete agar set nahi hai to manually permissions detach karein
+        $role->permissions()->detach();
         $role->delete();
 
         return response()->json(['message' => 'Role terminated successfully.']);
     }
 
     /**
-     * Edit Modal ke liye permissions sync karna.
+     * Matrix/Permissions sync karna.
      */
     public function syncPermissions(Request $request, $id)
-    {
-        $role = Role::findOrFail($id);
-        $request->validate([
-            'permissions' => 'required|array'
-        ]);
+{
+    $role = Role::findOrFail($id);
+    
+    // Matrix se sirf selected IDs ka array aana chahiye: [1, 2, 5]
+    $role->permissions()->sync($request->permissions); 
 
-        $role->permissions()->sync($request->permissions);
-
-        return response()->json(['message' => 'Matrix policy updated!']);
-    }
+    return response()->json(['message' => 'Permissions updated successfully!']);
+}
 }

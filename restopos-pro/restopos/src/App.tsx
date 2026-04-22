@@ -2,200 +2,165 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   LayoutDashboard, ShoppingCart, Table as TableIcon, ChefHat, 
-  Menu as MenuIcon, Package, BarChart3, Users, Settings,
-  Truck, LogOut, Bell, Search, X, 
-  ShieldCheck // 👈 Permission Icon
+  Menu as MenuIcon, Package, BarChart3, Users, ShieldCheck, LogOut, Bell, Menu as MenuIconLucide 
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 
-// Types & Pages imports
-import { View } from './types';
+// Pages imports
 import Dashboard from './pages/Dashboard/dashboard';
-import Suppliers from './pages/Supplier/Supplier';
 import POSTerminal from './pages/POSTerminal/POSTerminal';
 import FloorPlan from './pages/FloorPlan/FloorPlan';
-import KitchenDisplay from './pages/KitchenDisplay/KitchenDisplay';
 import MenuManagement from './pages/MenuManagement/MenuManagement';
-import Inventory  from './pages/Inventory/Inventory';
+import Inventory from './pages/Inventory/Inventory';
 import Reports from './pages/Reports/Reports';
 import StaffManagement from './pages/StaffManagement/StaffManagement';
-import RolePermissionMatrix from './pages/RolePermissions/RolePermissionMatrix'; // 👈 Matrix Page
+import RolePermissionMatrix from './pages/RolePermissions/RolePermissionMatrix';
+import KitchenDisplay from './pages/KitchenDisplay/KitchenDisplay'; // <--- Kitchen Import
 import Login from './components/Login';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [currentView, setCurrentView] = useState('dashboard');
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
+  
+  const [user, setUser] = useState<any>(null);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // --- Auth Logic Start ---
-  const token = localStorage.getItem('token');
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-  // Token synchronization with Axios
   useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    const storedUser = localStorage.getItem('user');
+    const storedToken = localStorage.getItem('token');
+    if (storedUser && storedToken) {
+      setUser(JSON.parse(storedUser));
+      setToken(storedToken);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
     }
-  }, [token]);
+    setIsInitialized(true);
+  }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.reload(); 
+  // --- PERMISSION HELPER ---
+  const can = (permissionSlug: string) => {
+    if (!user || !user.permissions) return false;
+    return user.permissions.some((p: any) => p.slug === permissionSlug);
   };
 
-  if (!token) {
-    return <Login />;
-  }
-  // --- Auth Logic End ---
-
-  // Navigation Items
+  // --- UPDATED NAVIGATION ITEMS ---
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'suppliers', label: 'Suppliers', icon: Truck },
-    { id: 'pos', label: 'POS Terminal', icon: ShoppingCart },
-    { id: 'floor', label: 'Floor Plan', icon: TableIcon },
-    { id: 'kds', label: 'Kitchen OS', icon: ChefHat },
-    { id: 'menu', label: 'Menu Management', icon: MenuIcon },
-    { id: 'inventory', label: 'Inventory', icon: Package },
-    { id: 'reports', label: 'Sales Reports', icon: BarChart3 },
-    { id: 'staff', label: 'Staff & Roles', icon: Users },
-    { id: 'permissions', label: 'Access Control', icon: ShieldCheck }, // 👈 Added
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, slug: 'view-dashboard' },
+    { id: 'pos', label: 'POS Terminal', icon: ShoppingCart, slug: 'access-pos' },
+    { id: 'floor', label: 'Floor Plan', icon: TableIcon, slug: 'view-floor-plan' }, 
+    // Kitchen Item Added
+    { id: 'kitchen', label: 'Kitchen OS', icon: ChefHat, slug: 'view-kitchen' }, 
+    { id: 'menu', label: 'Menu Management', icon: MenuIcon, slug: 'view-menu' },
+    { id: 'inventory', label: 'Inventory', icon: Package, slug: 'view-inventory' },
+    { id: 'reports', label: 'Sales Reports', icon: BarChart3, slug: 'view-reports' },
+    { id: 'staff', label: 'Staff & Roles', icon: Users, slug: 'view-staff' },
+    { id: 'permissions', label: 'Access Control', icon: ShieldCheck, slug: 'manage-permissions' },
   ];
 
+  const filteredNavItems = navItems.filter(item => can(item.slug));
+
+  if (!isInitialized) return null; 
+  if (!token || !user) return <Login />;
+
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href = '/'; 
+  };
+
+  // --- VIEW RENDERING ---
   const renderView = () => {
+    const activeItem = navItems.find(item => item.id === currentView);
+    if (activeItem && !can(activeItem.slug)) {
+      return <Dashboard />;
+    }
+
     switch (currentView) {
       case 'dashboard': return <Dashboard />;
-      case 'suppliers': return <Suppliers />;
       case 'pos': return <POSTerminal tableId={selectedTableId} />;
-      case 'floor': return <FloorPlan onStartOrder={(tableId: number) => {
-        setSelectedTableId(tableId);
-        setCurrentView('pos');
-      }} />;
-      case 'kds': return <KitchenDisplay />;
+      case 'floor': 
+        return (
+          <FloorPlan 
+            canManageLayout={can('manage-tables')} 
+            canCreateOrder={can('create-order')}
+            onStartOrder={(id) => { 
+              if (can('create-order')) {
+                setSelectedTableId(id); 
+                setCurrentView('pos'); 
+              } else {
+                alert("Access Denied: You do not have permission to create orders.");
+              }
+            }} 
+          />
+        );
+
+      // --- Kitchen Case Added ---
+      case 'kitchen': 
+        return <KitchenDisplay userPermissions={user.permissions} />;
+
       case 'menu': return <MenuManagement />;
       case 'inventory': return <Inventory />;
       case 'reports': return <Reports />;
       case 'staff': return <StaffManagement />;
-      case 'permissions': return <RolePermissionMatrix />; // 👈 Added
+      case 'permissions': return <RolePermissionMatrix />;
       default: return <Dashboard />;
     }
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-900">
-      {/* Mobile Sidebar Overlay */}
-      <AnimatePresence>
-        {isSidebarOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm"
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Sidebar */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 transition-transform duration-300 ease-in-out
-        lg:relative lg:translate-x-0 lg:w-64
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        <div className="p-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="size-10 bg-slate-900 rounded-xl flex items-center justify-center text-white shadow-lg">
-              <ChefHat size={22} />
-            </div>
-            <h1 className="font-black text-xl tracking-tight">RestoPOS</h1>
-          </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-2 text-slate-500">
-            <X size={20} />
-          </button>
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-900">
+      {/* Sidebar Section */}
+      <aside className={`fixed lg:relative z-50 w-64 h-full bg-white border-r transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="p-6 font-black text-xl italic tracking-tight flex items-center gap-2 border-b">
+            <div className="p-2 bg-slate-900 text-white rounded-lg"><ChefHat size={20}/></div>
+            RestoPOS
         </div>
 
-        <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto no-scrollbar">
-          {navItems.map((item) => (
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {filteredNavItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => {
-                setCurrentView(item.id as View);
-                setSidebarOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                currentView === item.id 
-                  ? 'bg-slate-900 text-white font-bold shadow-md' 
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-              }`}
+              onClick={() => { setCurrentView(item.id); setSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === item.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
             >
-              <item.icon size={20} className={currentView === item.id ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'} />
-              <span className="text-sm">{item.label}</span>
+              <item.icon size={18} />
+              <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
             </button>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-100 space-y-2">
-          <div className="px-4 py-3 bg-slate-50 rounded-2xl mb-2">
-              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Active User</p>
-              <p className="text-sm font-bold text-slate-900 truncate">{user.name || 'Administrator'}</p>
-          </div>
-          <button 
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-all font-bold group"
-          >
-            <LogOut size={20} className="group-hover:translate-x-1 transition-transform" />
-            <span className="text-sm">Sign Out</span>
-          </button>
+        {/* User Info & Logout */}
+        <div className="p-4 border-t bg-white">
+            <div className="p-4 bg-slate-50 rounded-2xl mb-2">
+                <p className="text-[8px] font-black uppercase text-slate-400">Personalized Access</p>
+                <p className="text-xs font-bold text-slate-900 truncate">{user.name}</p>
+                <p className="text-[10px] text-slate-500 font-medium capitalize">{user.role?.role_name || 'Staff'}</p>
+            </div>
+            <button onClick={handleLogout} className="w-full py-3 text-red-500 font-black text-[10px] uppercase hover:bg-red-50 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95">
+                <LogOut size={14}/> Sign Out
+            </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-hidden relative w-full">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 shrink-0 z-10">
-          <button 
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg lg:hidden"
-          >
-            <X size={24} />
-          </button>
-          
-          <div className="relative w-full max-w-md hidden sm:block mx-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search data..."
-              className="w-full bg-slate-100 border-none rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-slate-200 transition-all"
-            />
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg relative">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
-            <div className="flex items-center gap-2">
-                <span className="size-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                <span className="text-xs font-bold text-slate-500 hidden md:block uppercase tracking-widest">Server Live</span>
-            </div>
-          </div>
+      {/* Main Area */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <header className="h-16 bg-white border-b flex items-center justify-between px-8 shrink-0">
+           <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-slate-600"><MenuIconLucide/></button>
+           <div className="flex items-center gap-4 ml-auto">
+             <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
+                <div className="size-1.5 bg-emerald-500 rounded-full animate-pulse"/>
+                <span className="text-[9px] font-black uppercase tracking-tighter">Verified: {user.name}</span>
+             </div>
+           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentView}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-            >
-              {renderView()}
-            </motion.div>
-          </AnimatePresence>
+        <div className="flex-1 overflow-y-auto p-4 lg:p-8 bg-slate-50">
+            {renderView()}
         </div>
       </main>
+
+      {isSidebarOpen && (
+        <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
     </div>
   );
 }

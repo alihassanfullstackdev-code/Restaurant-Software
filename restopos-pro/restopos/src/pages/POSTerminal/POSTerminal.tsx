@@ -319,7 +319,14 @@ export default function POSTerminal({ tableId }: { tableId?: number | null }) {
       
       <PaymentMethodModal isOpen={showPaymentModal} onClose={() => setShowPaymentModal(false)} onSelect={processFinalOrder} total={displayTotal} />
       {showPrintModal && lastOrder && <PrintModel isOpen={showPrintModal} order={lastOrder} onClose={() => setShowPrintModal(false)} />}
-      <AddItemModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={async () => { fetchInitialData(); setIsModalOpen(false); return null; }} categories={categories} initialData={editingProduct} />
+      <AddItemModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSave={async () => { fetchInitialData(); setIsModalOpen(false); return null; }} 
+        categories={categories} 
+        initialData={editingProduct} 
+        onRefresh={fetchInitialData}
+      />
     </div>
   );
 }

@@ -17,7 +17,7 @@ import { ResturantTable } from '../../types';
 interface FloorSidebarProps {
   selectedTable: ResturantTable | null;
   onAction: (type: 'transfer' | 'merge' | 'split' | 'unmerge') => void;
-  onEdit: () => void;
+  onEdit?: () => void;
   fetchData: () => void;
   onStartOrder?: (tableId: number) => void;
 }
@@ -74,12 +74,16 @@ export default function FloorSidebar({ selectedTable, onAction, onEdit, fetchDat
           </span>
         </div>
         <div className="flex gap-2">
-          <button onClick={onEdit} className="p-3 bg-slate-50 hover:bg-slate-900 hover:text-white rounded-2xl transition-all">
-            <Edit3 size={18} />
-          </button>
-          <button onClick={handleDelete} className="p-3 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-2xl transition-all text-rose-500">
-            <Trash2 size={18} />
-          </button>
+          {onEdit && (
+            <>
+              <button onClick={onEdit} className="p-3 bg-slate-50 hover:bg-slate-900 hover:text-white rounded-2xl transition-all">
+                <Edit3 size={18} />
+              </button>
+              <button onClick={handleDelete} className="p-3 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-2xl transition-all text-rose-500">
+                <Trash2 size={18} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
